@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit Converter for Energy Engineers</title>
+<style>
+:root{--bg:#EEF2F1;--ink:#12292B;--muted:#4C6264;--line:#C9D6D4;--accent:#0E6E6B;--sun:#F2A93B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 Arial,Helvetica,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:40px 20px 60px}
+h1{font-size:clamp(30px,6vw,44px);margin:0 0 6px;letter-spacing:-.02em}
+p.sub{margin:0 0 28px;color:var(--muted)}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.tabs button{padding:9px 16px;border:2px solid var(--ink);background:transparent;color:var(--ink);border-radius:6px;font:inherit;font-weight:700;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:24px}
+.row{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;padding:11px 12px;font:inherit;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+#swap{padding:11px 14px;border:2px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;font-size:18px;cursor:pointer}
+.result{margin:24px 0 4px;font-size:clamp(26px,5vw,36px);font-weight:700;word-break:break-word}
+.result small{display:block;font-size:15px;font-weight:400;color:var(--muted)}
+table{width:100%;border-collapse:collapse;margin-top:22px;font-size:15px}
+td{padding:7px 4px;border-top:1px solid var(--line)}
+td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.note{margin-top:18px;font-size:14px;color:var(--muted)}
+@media(max-width:560px){.row{grid-template-columns:1fr}#swap{justify-self:start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Unit Converter</h1>
+  <p class="sub">Length, mass, pressure, energy, power and temperature for engineering work.</p>
+  <div class="tabs" id="tabs" role="group" aria-label="Category"></div>
+  <div class="panel">
+    <div class="row">
+      <div><label for="val">Value</label><input id="val" type="number" step="any" value="1"></div>
+      <div></div>
+      <div></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div><label for="from">From</label><select id="from"></select></div>
+      <button id="swap" type="button" aria-label="Swap units">&#8646;</button>
+      <div><label for="to">To</label><select id="to"></select></div>
+    </div>
+    <div class="result" id="result" aria-live="polite"></div>
+    <table id="all" aria-label="All conversions"></table>
+    <p class="note" id="note"></p>
+  </div>
+</div>
+<script>
+// Each unit: factor = how many base units in 1 of this unit
+const DATA = {
+  Length: {base:"m", units:{mm:0.001,cm:0.01,m:1,km:1000,"in":0.0254,ft:0.3048,yd:0.9144,mi:1609.344}},
+  Mass: {base:"kg", units:{g:0.001,kg:1,t:1000,lb:0.45359237,oz:0.028349523125}},
+  Pressure: {base:"Pa", units:{Pa:1,kPa:1e3,MPa:1e6,bar:1e5,atm:101325,psi:6894.757293168,mmHg:133.322387415}},
+  Energy: {base:"J", units:{J:1,kJ:1e3,MJ:1e6,Wh:3600,kWh:3.6e6,cal:4.184,kcal:4184,BTU:1055.05585262,eV:1.602176634e-19}},
+  Power: {base:"W", units:{W:1,kW:1e3,MW:1e6,"hp (mech.)":745.69987158227,"PS (metric hp)":735.49875,"BTU/h":0.29307107}},
+  Temperature: {special:true, units:{"°C":1,"°F":1,"K":1}}
+};
+const toK = {"°C":v=>v+273.15,"°F":v=>(v-32)*5/9+273.15,"K":v=>v};
+const fromK = {"°C":k=>k-273.15,"°F":k=>(k-273.15)*9/5+32,"K":k=>k};
+
+let cat = "Energy";
+const $ = id => document.getElementById(id);
+
+function convert(v, from, to){
+  const d = DATA[cat];
+  if(d.special) return fromK[to](toK[from](v));
+  return v * d.units[from] / d.units[to];
+}
+function fmt(n){
+  if(!isFinite(n)) return "—";
+  if(n === 0) return "0";
+  const a = Math.abs(n);
+  if(a >= 1e9 || a < 1e-4) return n.toExponential(5).replace(/\.?0+e/, "e");
+  return String(parseFloat(n.toPrecision(8)));
+}
+function fillSelects(){
+  const names = Object.keys(DATA[cat].units);
+  for(const id of ["from","to"]){
+    $(id).innerHTML = names.map(n => `<option>${n}</option>`).join("");
+  }
+  $("from").selectedIndex = 0;
+  $("to").selectedIndex = Math.min(1, names.length - 1);
+}
+function update(){
+  const v = parseFloat($("val").value);
+  const from = $("from").value, to = $("to").value;
+  if(isNaN(v)){ $("result").textContent = "Enter a number"; $("all").innerHTML = ""; return; }
+  $("result").innerHTML = `${fmt(convert(v,from,to))} ${to}<small>${fmt(v)} ${from} =</small>`;
+  $("all").innerHTML = Object.keys(DATA[cat].units).filter(u => u !== from)
+    .map(u => `<tr><td>${u}</td><td>${fmt(convert(v,from,u))}</td></tr>`).join("");
+  $("note").textContent = cat === "Temperature" ? "Temperature uses offset formulas, not a simple multiplier." : "";
+}
+function buildTabs(){
+  $("tabs").innerHTML = "";
+  for(const name of Object.keys(DATA)){
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = name;
+    b.setAttribute("aria-pressed", name === cat);
+    b.onclick = () => { cat = name; buildTabs(); fillSelects(); update(); };
+    $("tabs").appendChild(b);
+  }
+}
+$("val").addEventListener("input", update);
+$("from").addEventListener("change", update);
+$("to").addEventListener("change", update);
+$("swap").addEventListener("click", () => {
+  const f = $("from").value; $("from").value = $("to").value; $("to").value = f; update();
+});
+buildTabs(); fillSelects(); update();
+</script>
+</body>
+</html>

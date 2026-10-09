@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watt's Up? Unit Converter</title>
+<style>
+:root{--ink:#1B1B2F;--bg:#FFF3C4;--c:#FF6B6B;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "Trebuchet MS",Verdana,sans-serif;transition:background .3s}
+.wrap{max-width:760px;margin:0 auto;padding:32px 18px 60px}
+h1{font-size:clamp(34px,8vw,58px);margin:0;line-height:1;letter-spacing:-.02em}
+h1 span{display:inline-block;background:var(--c);color:#fff;padding:2px 12px;border:3px solid var(--ink);border-radius:12px;box-shadow:4px 4px 0 var(--ink);transform:rotate(-2deg);transition:background .3s}
+.sub{margin:14px 0 24px;font-size:18px}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+.tabs button{padding:10px 14px;border:3px solid var(--ink);background:#fff;border-radius:12px;font:inherit;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.tabs button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.tabs button[aria-pressed="true"]{background:var(--c);color:#fff}
+.box{background:var(--card);border:3px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);padding:22px;margin-bottom:24px}
+.row{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end}
+label{display:block;font-size:14px;font-weight:700;margin-bottom:4px}
+input,select{width:100%;padding:11px 12px;font:inherit;border:3px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink)}
+:focus-visible{outline:4px solid var(--ink);outline-offset:2px}
+#swap{padding:10px 14px;border:3px solid var(--ink);background:var(--ink);color:#fff;border-radius:10px;font-size:20px;cursor:pointer;transition:transform .3s}
+#swap.spin{transform:rotate(180deg)}
+.result{margin:20px 0 0;font-size:clamp(26px,6vw,40px);font-weight:800;word-break:break-word}
+.result small{display:block;font-size:15px;font-weight:400}
+.fact{margin-top:16px;padding:12px 14px;background:var(--bg);border:3px dashed var(--ink);border-radius:12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chips span{border:2px solid var(--ink);border-radius:999px;padding:3px 12px;font-size:14px;background:#fff}
+h2{margin:0 0 6px;font-size:26px}
+.q{font-size:20px;font-weight:700;margin:10px 0}
+.qrow{display:flex;gap:10px;flex-wrap:wrap}
+.qrow input{flex:1;min-width:140px}
+.btn{padding:11px 18px;border:3px solid var(--ink);background:var(--c);color:#fff;border-radius:10px;font:inherit;font-weight:800;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:none}
+#msg{min-height:28px;margin-top:12px;font-weight:700}
+.score{float:right;font-weight:800;background:var(--bg);border:3px solid var(--ink);border-radius:999px;padding:2px 14px;font-size:15px}
+.wiggle{animation:w .4s}
+@keyframes w{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@media(max-width:560px){.row{grid-template-columns:1fr}#swap{justify-self:start}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span>Watt's Up?</span></h1>
+  <p class="sub">Convert anything an energy engineer might need, then test yourself in the quick quiz.</p>
+  <div class="tabs" id="tabs" role="group" aria-label="Category"></div>
+
+  <div class="box">
+    <div class="row"><div><label for="val">Value</label><input id="val" type="number" step="any" value="1"></div><div></div><div></div></div>
+    <div class="row" style="margin-top:14px">
+      <div><label for="from">From</label><select id="from"></select></div>
+      <button id="swap" type="button" aria-label="Swap units">&#8646;</button>
+      <div><label for="to">To</label><select id="to"></select></div>
+    </div>
+    <div class="result" id="result" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <div class="fact" id="fact"></div>
+  </div>
+
+  <div class="box">
+    <span class="score" id="score">Streak: 0</span>
+    <h2>Quick quiz</h2>
+    <div class="q" id="q"></div>
+    <div class="qrow">
+      <input id="ans" type="number" step="any" placeholder="Your answer" aria-label="Your answer">
+      <button class="btn" id="check" type="button">Check</button>
+      <button class="btn" id="next" type="button" style="background:var(--ink)">New question</button>
+    </div>
+    <div id="msg" aria-live="polite"></div>
+  </div>
+</div>
+<script>
+const DATA = {
+  Length:{e:"📏",c:"#FF6B6B",bg:"#FFF3C4",units:{mm:0.001,cm:0.01,m:1,km:1000,"in":0.0254,ft:0.3048,mi:1609.344},fact:"The metre was once defined as one ten-millionth of the distance from the equator to the North Pole."},
+  Mass:{e:"⚖️",c:"#7B61FF",bg:"#E9E4FF",units:{g:0.001,kg:1,t:1000,lb:0.45359237,oz:0.028349523125},fact:"The kilogram was the last SI unit defined by a physical object, a metal cylinder in France, until 2019."},
+  Pressure:{e:"🎈",c:"#00A6A6",bg:"#D9F7F3",units:{Pa:1,kPa:1e3,MPa:1e6,bar:1e5,atm:101325,psi:6894.757293168,mmHg:133.322387415},fact:"1 atm is about 1.01 bar, so a bar is close to the air pressure around you right now."},
+  Energy:{e:"⚡",c:"#F59E0B",bg:"#FFF0CC",units:{J:1,kJ:1e3,MJ:1e6,Wh:3600,kWh:3.6e6,cal:4.184,kcal:4184,BTU:1055.05585262},fact:"1 kWh is 3.6 MJ. Running a 1000 W heater for one hour uses exactly 1 kWh."},
+  Power:{e:"🔌",c:"#2F9E44",bg:"#DFF5E3",units:{W:1,kW:1e3,MW:1e6,"hp (mech.)":745.69987158227,"PS (metric hp)":735.49875,"BTU/h":0.29307107},fact:"James Watt invented the horsepower to sell steam engines by comparing them to draft horses."},
+  Temperature:{e:"🌡️",c:"#E8590C",bg:"#FFE3D3",special:true,units:{"°C":1,"°F":1,"K":1},fact:"-40 is the one temperature where °C and °F show the same number."}
+};
+const toK={"°C":v=>v+273.15,"°F":v=>(v-32)*5/9+273.15,"K":v=>v};
+const fromK={"°C":k=>k-273.15,"°F":k=>(k-273.15)*9/5+32,"K":k=>k};
+let cat="Energy", streak=0, quiz=null;
+const $=id=>document.getElementById(id);
+
+function conv(c,v,f,t){const d=DATA[c];return d.special?fromK[t](toK[f](v)):v*d.units[f]/d.units[t]}
+function fmt(n){
+  if(!isFinite(n))return "—"; if(n===0)return "0";
+  const a=Math.abs(n);
+  if(a>=1e9||a<1e-4)return n.toExponential(5).replace(/\.?0+e/,"e");
+  return String(parseFloat(n.toPrecision(8)));
+}
+function theme(){
+  const d=DATA[cat];
+  document.documentElement.style.setProperty("--c",d.c);
+  document.documentElement.style.setProperty("--bg",d.bg);
+}
+function fill(){
+  const names=Object.keys(DATA[cat].units);
+  for(const id of ["from","to"])$(id).innerHTML=names.map(n=>`<option>${n}</option>`).join("");
+  $("to").selectedIndex=Math.min(1,names.length-1);
+}
+function update(){
+  const v=parseFloat($("val").value),f=$("from").value,t=$("to").value;
+  $("fact").textContent="Did you know? "+DATA[cat].fact;
+  if(isNaN(v)){$("result").textContent="Type a number";$("chips").innerHTML="";return}
+  $("result").innerHTML=`${fmt(conv(cat,v,f,t))} ${t}<small>${fmt(v)} ${f} =</small>`;
+  $("chips").innerHTML=Object.keys(DATA[cat].units).filter(u=>u!==f&&u!==t)
+    .map(u=>`<span>${fmt(conv(cat,v,f,u))} ${u}</span>`).join("");
+}
+function tabs(){
+  $("tabs").innerHTML="";
+  for(const n of Object.keys(DATA)){
+    const b=document.createElement("button");
+    b.type="button";b.textContent=DATA[n].e+" "+n;b.setAttribute("aria-pressed",n===cat);
+    b.onclick=()=>{cat=n;theme();tabs();fill();update();newQ()};
+    $("tabs").appendChild(b);
+  }
+}
+function newQ(){
+  const names=Object.keys(DATA[cat].units);
+  let f=names[Math.floor(Math.random()*names.length)],t;
+  do{t=names[Math.floor(Math.random()*names.length)]}while(t===f);
+  const v=[1,2,5,10,25,50,100][Math.floor(Math.random()*7)];
+  quiz={v,f,t,a:conv(cat,v,f,t)};
+  $("q").textContent=`How many ${t} is ${v} ${f}?`;
+  $("ans").value="";$("msg").textContent="";
+}
+function check(){
+  const g=parseFloat($("ans").value);
+  if(isNaN(g)){$("msg").textContent="Type your answer first.";return}
+  const ok=Math.abs(g-quiz.a)<=Math.abs(quiz.a)*0.01+1e-9;
+  if(ok){streak++;$("msg").textContent=`Correct! The exact answer is ${fmt(quiz.a)} ${quiz.t}.`}
+  else{streak=0;$("msg").textContent=`Not quite. ${quiz.v} ${quiz.f} = ${fmt(quiz.a)} ${quiz.t}.`;
+    $("msg").classList.remove("wiggle");void $("msg").offsetWidth;$("msg").classList.add("wiggle")}
+  $("score").textContent="Streak: "+streak;
+}
+$("val").oninput=update;$("from").onchange=update;$("to").onchange=update;
+$("swap").onclick=()=>{const f=$("from").value;$("from").value=$("to").value;$("to").value=f;
+  $("swap").classList.toggle("spin");update()};
+$("check").onclick=check;$("next").onclick=newQ;
+$("ans").addEventListener("keydown",e=>{if(e.key==="Enter")check()});
+theme();tabs();fill();update();newQ();
+</script>
+</body>
+</html>
